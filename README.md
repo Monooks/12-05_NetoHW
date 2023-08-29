@@ -49,8 +49,8 @@ where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and
 -> Limit: 200 row(s)  (cost=0..0 rows=0) (actual time=8394..8394 rows=200 loops=1)
     -> Table scan on <temporary>  (cost=2.5..2.5 rows=0) (actual time=8394..8394 rows=200 loops=1)
         -> Temporary table with deduplication  (cost=0..0 rows=0) (actual time=8394..8394 rows=391 loops=1)
-            -> Window aggregate with buffering: sum(payment.amount) OVER (PARTITION BY c.customer_id,f.title )   (actual time=3500..8028 rows=642000 loops=1)
-                -> Sort: c.customer_id, f.title  (actual time=3500..3625 rows=642000 loops=1)
+            -> Window aggregate with buffering: sum(payment.amount) OVER (PARTITION BY c.customer_id,f.title )   (actual time=3500..8028 rows=642000 loops=1) -- узкое место!
+                -> Sort: c.customer_id, f.title  (actual time=3500..3625 rows=642000 loops=1) -- узкое место!
                     -> Stream results  (cost=21.2e+6 rows=16e+6) (actual time=6.7..2683 rows=642000 loops=1)
                         -> Nested loop inner join  (cost=21.2e+6 rows=16e+6) (actual time=6.5..2316 rows=642000 loops=1)
                             -> Nested loop inner join  (cost=19.6e+6 rows=16e+6) (actual time=3.71..2097 rows=642000 loops=1)
@@ -64,7 +64,7 @@ where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and
                                 -> Single-row index lookup on c using PRIMARY (customer_id=r.customer_id)  (cost=250e-6 rows=1) (actual time=195e-6..228e-6 rows=1 loops=642000)
                             -> Single-row covering index lookup on i using PRIMARY (inventory_id=r.inventory_id)  (cost=925e-6 rows=1) (actual time=149e-6..179e-6 rows=1 loops=642000)
 ```
-
+Узкие места там, где большое время выполнения и 642 тысячи строк анализируемых данных.
 ---
 ## Дополнительные задания (со звёздочкой*)
 Эти задания дополнительные, то есть не обязательные к выполнению, и никак не повлияют на получение вами зачёта по этому домашнему заданию. Вы можете их выполнить, если хотите глубже шире разобраться в материале.
@@ -76,5 +76,8 @@ where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and
 *Приведите ответ в свободной форме.*
 
 #### ОТВЕТ:
-
+Индексы, которые есть в PostgreSQL но нет в MySQL:
+1. Bitmap index — метод битовых индексов заключается в создании отдельных битовых карт (последовательность 0 и 1) для каждого возможного значения столбца, где каждому биту соответствует строка с индексируемым значением, а его значение равное 1 означает, что запись, соответствующая позиции бита содержит индексируемое значение для данного столбца или свойства;
+2. Partial index — это индекс, построенный на части таблицы, удовлетворяющей определенному условию самого индекса. Данный индекс создан для уменьшения размера индекса;
+3. Function based index —  индексы, ключи которых хранят результат пользовательских функций. Функциональные индексы часто строятся для полей, значения которых проходят предварительную обработку перед сравнением в команде SQL. Например, при сравнении строковых данных без учета регистра символов часто используется функция UPPER. Создание функционального индекса с функцией UPPER улучшает эффективность таких сравнений.
 ---
