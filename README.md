@@ -65,6 +65,51 @@ where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and
                             -> Single-row covering index lookup on i using PRIMARY (inventory_id=r.inventory_id)  (cost=925e-6 rows=1) (actual time=149e-6..179e-6 rows=1 loops=642000)
 ```
 Узкие места там, где большое время выполнения и 642 тысячи строк анализируемых данных.
+Вроде заиндексироваить надобно payment_date в payment.
+```sql
+SELECT concat(c.last_name, ' ', c.first_name) AS customers, SUM(p.amount)
+FROM customer c
+JOIN rental r ON c.customer_id = r.customer_id 
+JOIN payment p ON r.rental_date = p.payment_date AND date(p.payment_date) = '2005-07-30'
+GROUP BY c.customer_id
+```
+```sql
+EXPLAIN ANALYZE
+SELECT concat(c.last_name, ' ', c.first_name) AS customers, SUM(p.amount)
+FROM customer c
+JOIN rental r ON c.customer_id = r.customer_id 
+JOIN payment p ON r.rental_date = p.payment_date AND date(p.payment_date) = '2005-07-30'
+GROUP BY c.customer_id;
+```
+```sql
+-> Limit: 200 row(s)  (actual time=13.7..13.7 rows=200 loops=1)
+    -> Table scan on <temporary>  (actual time=11.5..11.5 rows=200 loops=1)
+        -> Aggregate using temporary table  (actual time=11.5..11.5 rows=391 loops=1)
+            -> Nested loop inner join  (cost=12763 rows=16010) (actual time=0.119..10.3 rows=642 loops=1)
+                -> Nested loop inner join  (cost=7160 rows=16010) (actual time=0.0976..9.29 rows=642 loops=1)
+                    -> Filter: (cast(p.payment_date as date) = '2005-07-30')  (cost=1606 rows=15813) (actual time=0.064..7.08 rows=634 loops=1)
+                        -> Table scan on p  (cost=1606 rows=15813) (actual time=0.044..5.51 rows=16044 loops=1)
+                    -> Covering index lookup on r using rental_date (rental_date=p.payment_date)  (cost=0.25 rows=1.01) (actual time=0.0023..0.00324 rows=1.01 loops=634)
+                -> Single-row index lookup on c using PRIMARY (customer_id=r.customer_id)  (cost=0.25 rows=1) (actual time=0.00125..0.00128 rows=1 loops=642)
+```
+ВВОДИМ ИНДЕКС:
+```sql
+CREATE INDEX payday ON payment(payment_date);
+```
+РЕЗУЛЬТАТЫ предыдущего EXPLAIN ANALYZE:
+```sql
+-> Limit: 200 row(s)  (cost=8062 rows=187) (actual time=0.472..35.5 rows=200 loops=1)
+    -> Group aggregate: sum(p.amount)  (cost=8062 rows=187) (actual time=0.472..35.5 rows=200 loops=1)
+        -> Nested loop inner join  (cost=8043 rows=187) (actual time=0.311..35.1 rows=317 loops=1)
+            -> Nested loop inner join  (cost=4022 rows=187) (actual time=0.116..13.7 rows=7694 loops=1)
+                -> Index scan on c using PRIMARY  (cost=0.0228 rows=7) (actual time=0.0291..0.268 rows=284 loops=1)
+                -> Index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)  (cost=6.69 rows=26.7) (actual time=0.0373..0.0454 rows=27.1 loops=284)
+            -> Index lookup on p using payday (payment_date=r.rental_date), with index condition: (cast(p.payment_date as date) = '2005-07-30')  (cost=0.25 rows=1) (actual time=0.00257..0.0026 rows=0.0412 loops=7694)
+
+```
+
+
+
 ---
 ## Дополнительные задания (со звёздочкой*)
 Эти задания дополнительные, то есть не обязательные к выполнению, и никак не повлияют на получение вами зачёта по этому домашнему заданию. Вы можете их выполнить, если хотите глубже шире разобраться в материале.
