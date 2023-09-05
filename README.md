@@ -70,7 +70,7 @@ where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and
 SELECT concat(c.last_name, ' ', c.first_name) AS customers, SUM(p.amount)
 FROM customer c
 JOIN rental r ON c.customer_id = r.customer_id 
-JOIN payment p ON r.rental_date = p.payment_date AND date(p.payment_date) = '2005-07-30'
+JOIN payment p ON r.rental_date = p.payment_date WHERE date(p.payment_date) = '2005-07-30'
 GROUP BY c.customer_id
 ```
 ```sql
@@ -78,7 +78,7 @@ EXPLAIN ANALYZE
 SELECT concat(c.last_name, ' ', c.first_name) AS customers, SUM(p.amount)
 FROM customer c
 JOIN rental r ON c.customer_id = r.customer_id 
-JOIN payment p ON r.rental_date = p.payment_date AND date(p.payment_date) = '2005-07-30'
+JOIN payment p ON r.rental_date = p.payment_date WHERE date(p.payment_date) = '2005-07-30'
 GROUP BY c.customer_id;
 ```
 ```sql
@@ -96,20 +96,16 @@ GROUP BY c.customer_id;
 ```sql
 CREATE INDEX payday ON payment(payment_date);
 ```
-РЕЗУЛЬТАТЫ предыдущего EXPLAIN ANALYZE:
+РЕЗУЛЬТАТЫ предыдущего EXPLAIN ANALYZE но с индексом:
 ```sql
--> Limit: 200 row(s)  (cost=8062 rows=187) (actual time=0.472..35.5 rows=200 loops=1)
-    -> Group aggregate: sum(p.amount)  (cost=8062 rows=187) (actual time=0.472..35.5 rows=200 loops=1)
-        -> Nested loop inner join  (cost=8043 rows=187) (actual time=0.311..35.1 rows=317 loops=1)
-            -> Nested loop inner join  (cost=4022 rows=187) (actual time=0.116..13.7 rows=7694 loops=1)
-                -> Index scan on c using PRIMARY  (cost=0.0228 rows=7) (actual time=0.0291..0.268 rows=284 loops=1)
-                -> Index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)  (cost=6.69 rows=26.7) (actual time=0.0373..0.0454 rows=27.1 loops=284)
-            -> Index lookup on p using payday (payment_date=r.rental_date), with index condition: (cast(p.payment_date as date) = '2005-07-30')  (cost=0.25 rows=1) (actual time=0.00257..0.0026 rows=0.0412 loops=7694)
-
+-> Limit: 200 row(s)  (cost=8062 rows=187) (actual time=0.464..38.9 rows=200 loops=1)
+    -> Group aggregate: sum(p.amount)  (cost=8062 rows=187) (actual time=0.463..38.8 rows=200 loops=1)
+        -> Nested loop inner join  (cost=8043 rows=187) (actual time=0.3..38.4 rows=317 loops=1)
+            -> Nested loop inner join  (cost=4022 rows=187) (actual time=0.096..14.6 rows=7694 loops=1)
+                -> Index scan on c using PRIMARY  (cost=0.0228 rows=7) (actual time=0.0295..0.252 rows=284 loops=1)
+                -> Index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)  (cost=6.69 rows=26.7) (actual time=0.0395..0.0484 rows=27.1 loops=284)
+            -> Index lookup on p using payday (payment_date=r.rental_date), with index condition: (cast(p.payment_date as date) = '2005-07-30')  (cost=0.25 rows=1) (actual time=0.00287..0.0029 rows=0.0412 loops=7694)
 ```
-
-
-
 ---
 ## Дополнительные задания (со звёздочкой*)
 Эти задания дополнительные, то есть не обязательные к выполнению, и никак не повлияют на получение вами зачёта по этому домашнему заданию. Вы можете их выполнить, если хотите глубже шире разобраться в материале.
